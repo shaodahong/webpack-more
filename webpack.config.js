@@ -1,106 +1,136 @@
 var path = require('path');
 var fs = require("fs");
+var glob = require('glob');
 var Webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
-var CleanWebpackPlugin = require('clean-webpack-plugin');
 
-module.exports = {
-    entry: {
-        setting: './setting.js',
-        queue: './queue.js'
-    },
+var isPro = process.env.NODE_ENV === 'production' ? true : false;
+
+var webpackConfig = {
+    entry: {},
     output: {
         path: path.resolve(__dirname, './dist/static'),
         publicPath: './static',
-        filename: '[name].[hash:5].js'
+        filename: isPro ? '[name].[hash:5].js' : '[name].js',
     },
     resolve: {
-        extensions: ['.js', '.scss', '.vue', '*', '.json'],
+        extensions: ['*', '.js', '.vue', '.json'],
         alias: {
             'vue$': 'vue/dist/vue.common.js'
         }
     },
     module: {
-        rules: [
-            {
-                test: /\.vue$/,
-                loader: 'vue-loader'
-            },
-            {
-                test: /\.js/,
-                loader: 'babel-loader',
-                exclude: /node_modules/
-            },
-            {
-                test: /\.scss/,
-                use: ExtractTextPlugin.extract({
-                    fallback: 'style-loader',
-                    use: [
-                        'css-loader',
-                        'sass-loader'
-                    ]
-                })
-            },
-            {
-                test: /\.css/,
-                use: ExtractTextPlugin.extract({
-                    fallback: 'style-loader',
-                    use: [
-                        'css-loader'
-                    ]
-                })
-            },
-            {
-                test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+        rules: [{
+            test: /\.vue$/,
+            loader: 'vue-loader'
+        }, {
+            test: /\.js/,
+            loader: 'babel-loader',
+            exclude: './node_modules/',
+            include: path.resolve(__dirname, './src')
+        }, {
+            test: /\.scss/,
+            use: ExtractTextPlugin.extract({
+                fallback: 'style-loader',
                 use: [
-                    {
-                        loader: "url-loader",
-                        options: {
-                            limit: 10000,
-                            name: '/assets/[name].[hash:5].[ext]'
-                        }
-                    }
+                    'css-loader',
+                    'sass-loader'
                 ]
+            }),
+            exclude: './node_modules/',
+            include: path.resolve(__dirname, './src')
+        }, {
+            test: /\.css/,
+            use: ExtractTextPlugin.extract({
+                fallback: 'style-loader',
+                use: [
+                    'css-loader'
+                ]
+            }),
+            exclude: './node_modules/',
+            include: path.resolve(__dirname, './src')
+        }, {
+            test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+            exclude: './node_modules/',
+            include: path.resolve(__dirname, './src'),
+            use: [{
+                loader: "url-loader",
+                options: {
+                    limit: 10000,
+                    name: '/images/[name].[hash:5].[ext]'
+                }
             }, {
-                test: /\.html$/, //获取html里面的图片
-                loader: 'html-loader'
-            }
-        ]
+                loader: 'image-webpack-loader',
+                options: {
+                    mozjpeg: {
+                        progressive: true,
+                    },
+                    gifsicle: {
+                        interlaced: false,
+                    },
+                    optipng: {
+                        optimizationLevel: 7,
+                    },
+                    pngquant: {
+                        quality: '60-80',
+                        speed: 4
+                    },
+                },
+            }],
+        }, {
+            test: /\.html$/,
+            loader: 'html-loader',
+            exclude: './node_modules/',
+            include: path.resolve(__dirname, './src')
+        }]
     },
     plugins: [
-        new HtmlWebpackPlugin({
-            template: path.resolve(__dirname, './setting.html'),
-            filename: '../setting.html',
-            minify: {
-                removeComments: true,
-                collapseWhitespace: true,
-                removeAttributeQuotes: true
-            },
-            chunks: ['setting']
+        new Webpack.ProvidePlugin({
         }),
-        new HtmlWebpackPlugin({
-            template: path.resolve(__dirname, './queue.html'),
-            filename: '../queue.html',
-            minify: {
-                removeComments: true,
-                collapseWhitespace: true,
-                removeAttributeQuotes: true
-            },
-            chunks: ['queue']
+        new Webpack.optimize.CommonsChunkPlugin({
+            name: 'vendors',
         }),
         new ExtractTextPlugin({
-            filename: 'setting.[hash:5].css',
+            filename: isPro ? 'css/[name].[hash:5].css' : 'css/[name].css',
             allChunks: true,
             disable: false
         }),
-        new CleanWebpackPlugin(['dist']),
-        new Webpack.HotModuleReplacementPlugin(), //热加载
+        new Webpack.HotModuleReplacementPlugin(),
     ],
     devServer: {
-        contentBase: './',
+        contentBase: './dist/',
         host: 'localhost',
         inline: false,
         hot: true,
     }
 }
+
+function getEntries(globPath) {
+    var files = glob.sync(globPath),
+        entries = {};
+
+    files.forEach(function(filepath) {
+        var split = filepath.split('/');
+        var name = split[split.length - 2];
+
+        entries[name] = filepath;
+    });
+
+    return entries;
+}
+
+var entries = getEntries('./src/pages/**/*.js');
+
+Object.keys(entries).forEach(function(name) {
+    webpackConfig.entry[name] = entries[name];
+    var plugin = new HtmlWebpackPlugin({
+        filename: '../' + name + '.html',
+        template: './src/pages/' + name + '/' + name + '.html',
+        inject: true,
+        chunks: [name, 'vendors']
+    });
+    webpackConfig.plugins.push(plugin);
+})
+
+module.exports = webpackConfig;
