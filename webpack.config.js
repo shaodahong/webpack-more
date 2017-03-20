@@ -23,7 +23,24 @@ var webpackConfig = {
     module: {
         rules: [{
             test: /\.vue$/,
-            loader: 'vue-loader'
+            loader: 'vue-loader',
+            options: {
+                loaders: {
+                    css: ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: [
+                            'css-loader'
+                        ]
+                    }),
+                    scss: ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: [
+                            'css-loader',
+                            'sass-loader'
+                        ]
+                    }),
+                }
+            }
         }, {
             test: /\.js/,
             loader: 'babel-loader',
@@ -86,8 +103,7 @@ var webpackConfig = {
         }]
     },
     plugins: [
-        new Webpack.ProvidePlugin({
-        }),
+        new Webpack.ProvidePlugin({}),
         new Webpack.optimize.CommonsChunkPlugin({
             name: 'vendors',
         }),
