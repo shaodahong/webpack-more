@@ -1,50 +1,49 @@
-// dev-server.js
-var express = require('express')
-var webpack = require('webpack')
-var webpackConfig = require('./webpack.config.js')
+// server.js
+// 依赖项
+const express = require('express');
+const path = require('path');
+const opn = require('opn');
+const webpack = require('webpack');
+const history = require('connect-history-api-fallback');
+const webpackMiddleware = require('webpack-dev-middleware');
+const webpackHotMiddleware = require('webpack-hot-middleware');
+// const proxy = require('express-http-proxy');
 
-var app = express();
+const config = require('./webpack.config.js');
+const isDeveloping = true;
+const port = isDeveloping ? 8000 : process.env.PORT;
 
-// webpack编译器
-var compiler = webpack(webpackConfig);
+const app = express();
 
-// webpack-dev-server中间件
-var devMiddleware = require('webpack-dev-middleware')(compiler, {
-    publicPath: webpackConfig.output.publicPath,
-    stats: {
-        colors: true,
-        chunks: false
-    }
-});
-
-app.use(devMiddleware)
-
-// 路由
-app.get('/:viewname?', function(req, res, next) {
-
-    var viewname = req.params.viewname
-        ? req.params.viewname + '.html'
-        : 'index.html';
-
-        console.log('viewname', viewname)
-
-    var filepath = './dist/' + viewname;
-
-    compiler.outputFileSystem.readFile(filepath, function(err, result) {
-        if (err) {
-            // something error
-            return next(err);
-        }
-        res.set('content-type', 'text/html');
-        res.send(result);
-        res.end();
+if (isDeveloping) {
+    const compiler = webpack(config);
+    const middleware = webpackMiddleware(compiler, {
+        publicPath: config.output.publicPath,
+        contentBase: config.output.path,
+        hot: true,
+	    stats: {
+	      colors: true,
+	      hash: false,
+	      timings: true,
+	      chunks: false,
+	      chunkModules: false,
+	      modules: false
+	    }
     });
-});
+    app.use(middleware);
+    app.use(webpackHotMiddleware(compiler));
+    app.use(express(path.join(__dirname + './dist/')));
+    app.use(history());
+    // app.get('*', function response(req, res) {
+    //     res.sendFile(path.join(__dirname + '/server/view/index.html'));
+    // });
+}
 
-module.exports = app.listen(8080, function(err) {
+app.listen(port, function onStart(err) {
     if (err) {
-        // do something
-        return;
+        console.log(err);
     }
-
-})
+    var uri='http://localhost:'+port;
+    opn(uri);
+}
+)

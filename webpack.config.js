@@ -7,12 +7,14 @@ var ExtractTextPlugin = require('extract-text-webpack-plugin');
 
 var isPro = process.env.NODE_ENV === 'production' ? true : false;
 
+// var publicPath = 'http://localhost:8000/';
+
 var webpackConfig = {
     entry: {},
     output: {
-        path: path.resolve(__dirname, './dist/static'),
-        publicPath: './static',
-        filename: isPro ? '[name].[hash:5].js' : '[name].js',
+        path: path.resolve(__dirname, './dist'),
+        publicPath: '',
+        filename: isPro ? 'static/[name].[hash:5].js' : 'static/[name].js',
     },
     resolve: {
         extensions: ['*', '.js', '.vue', '.json'],
@@ -29,14 +31,16 @@ var webpackConfig = {
                     css: ExtractTextPlugin.extract({
                         fallback: 'style-loader',
                         use: [
-                            'css-loader'
+                            'css-loader',
+                            'postcss-loader'
                         ]
                     }),
                     scss: ExtractTextPlugin.extract({
                         fallback: 'style-loader',
                         use: [
                             'css-loader',
-                            'sass-loader'
+                            'sass-loader',
+                            'postcss-loader'
                         ]
                     }),
                 }
@@ -47,22 +51,24 @@ var webpackConfig = {
             exclude: './node_modules/',
             include: path.resolve(__dirname, './src')
         }, {
-            test: /\.scss/,
+            test: /\.css/,
             use: ExtractTextPlugin.extract({
                 fallback: 'style-loader',
                 use: [
                     'css-loader',
-                    'sass-loader'
+                    'postcss-loader'
                 ]
             }),
             exclude: './node_modules/',
             include: path.resolve(__dirname, './src')
         }, {
-            test: /\.css/,
+            test: /\.(sass|scss)$/,
             use: ExtractTextPlugin.extract({
                 fallback: 'style-loader',
                 use: [
-                    'css-loader'
+                    'css-loader',
+                    'sass-loader',
+                    'postcss-loader'
                 ]
             }),
             exclude: './node_modules/',
@@ -75,7 +81,7 @@ var webpackConfig = {
                 loader: "url-loader",
                 options: {
                     limit: 10000,
-                    name: '/images/[name].[hash:5].[ext]'
+                    name: 'static/images/[name].[hash:5].[ext]'
                 }
             }, {
                 loader: 'image-webpack-loader',
@@ -96,6 +102,13 @@ var webpackConfig = {
                 },
             }],
         }, {
+            test: /\.(woff2?|eot|ttf|otf)\??.*$/,
+            loader: "url-loader",
+            // options: {
+            //     limit: 10000,
+            //     name: isPro ? 'static/fonts/[name].[hash:5].[ext]' : 'static/fonts/[name].[ext]'
+            // }
+        }, {
             test: /\.html$/,
             loader: 'html-loader',
             exclude: './node_modules/',
@@ -103,30 +116,37 @@ var webpackConfig = {
         }]
     },
     plugins: [
+        new Webpack.LoaderOptionsPlugin({
+            options: {
+                postcss: function () {
+                    return [require('autoprefixer')({browsers: ['> 1%', 'last 2 versions']})];
+                }
+            }
+        }),
+        new Webpack.HotModuleReplacementPlugin(),
+        new Webpack.NoEmitOnErrorsPlugin(),
         new Webpack.ProvidePlugin({}),
         new Webpack.optimize.CommonsChunkPlugin({
             name: 'vendors',
         }),
         new ExtractTextPlugin({
-            filename: isPro ? 'css/[name].[hash:5].css' : 'css/[name].css',
+            filename: isPro ? 'static/css/[name].[hash:5].css' : 'static/css/[name].css',
             allChunks: true,
-            disable: false
+            disable: isPro ? false : true
         }),
-        new Webpack.HotModuleReplacementPlugin(),
     ],
     devServer: {
-        contentBase: './dist/',
-        host: 'localhost',
-        inline: false,
-        hot: true,
-    }
+        historyApiFallback: {
+            disableDotRule: true
+        }
+    },
 }
 
 function getEntries(globPath) {
     var files = glob.sync(globPath),
         entries = {};
 
-    files.forEach(function(filepath) {
+    files.forEach(function (filepath) {
         var split = filepath.split('/');
         var name = split[split.length - 2];
 
@@ -137,11 +157,12 @@ function getEntries(globPath) {
 }
 
 var entries = getEntries('./src/pages/**/*.js');
+var hot = 'webpack-hot-middleware/client?reload=true';
 
-Object.keys(entries).forEach(function(name) {
-    webpackConfig.entry[name] = entries[name];
+Object.keys(entries).forEach(function (name) {
+    webpackConfig.entry[name] = [hot, entries[name]];
     var plugin = new HtmlWebpackPlugin({
-        filename: '../' + name + '.html',
+        filename: name + '.html',
         template: './src/pages/' + name + '/' + name + '.html',
         inject: true,
         chunks: [name, 'vendors']
