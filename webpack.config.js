@@ -4,6 +4,7 @@ var glob = require('glob');
 var Webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
+var UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 
 var isPro = process.env.NODE_ENV === 'production' ? true : false;
 
@@ -74,40 +75,16 @@ var webpackConfig = {
             exclude: './node_modules/',
             include: path.resolve(__dirname, './src')
         }, {
-            test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+            test: /\.(png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/i,
             exclude: './node_modules/',
             include: path.resolve(__dirname, './src'),
             use: [{
-                loader: "url-loader",
+                loader: "file-loader",
                 options: {
-                    limit: 10000,
+                    limit: 1000,
                     name: 'static/images/[name].[hash:5].[ext]'
                 }
-            }, {
-                loader: 'image-webpack-loader',
-                options: {
-                    mozjpeg: {
-                        progressive: true,
-                    },
-                    gifsicle: {
-                        interlaced: false,
-                    },
-                    optipng: {
-                        optimizationLevel: 7,
-                    },
-                    pngquant: {
-                        quality: '60-80',
-                        speed: 4
-                    },
-                },
             }],
-        }, {
-            test: /\.(woff2?|eot|ttf|otf)\??.*$/,
-            loader: "url-loader",
-            // options: {
-            //     limit: 10000,
-            //     name: isPro ? 'static/fonts/[name].[hash:5].[ext]' : 'static/fonts/[name].[ext]'
-            // }
         }, {
             test: /\.html$/,
             loader: 'html-loader',
@@ -130,10 +107,11 @@ var webpackConfig = {
             name: 'vendors',
         }),
         new ExtractTextPlugin({
-            filename: isPro ? 'static/css/[name].[hash:5].css' : 'static/css/[name].css',
+            filename: isPro ? '[name].[hash:5].css' : '[name].css',
             allChunks: true,
             disable: isPro ? false : true
         }),
+        new UglifyJSPlugin({})
     ],
     devServer: {
         historyApiFallback: {
@@ -156,11 +134,13 @@ function getEntries(globPath) {
     return entries;
 }
 
-var entries = getEntries('./src/pages/**/*.js');
+var entries = getEntries('./src/pages/*/*.js');
 var hot = 'webpack-hot-middleware/client?reload=true';
 
+console.log('entries', entries)
+
 Object.keys(entries).forEach(function (name) {
-    webpackConfig.entry[name] = [hot, entries[name]];
+    webpackConfig.entry[name] = isPro ? entries[name] : [hot, entries[name]];
     var plugin = new HtmlWebpackPlugin({
         filename: name + '.html',
         template: './src/pages/' + name + '/' + name + '.html',
