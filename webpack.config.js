@@ -111,7 +111,7 @@ var webpackConfig = {
             allChunks: true,
             disable: isPro ? false : true
         }),
-        new UglifyJSPlugin({})
+        // new UglifyJSPlugin({})
     ],
     devServer: {
         historyApiFallback: {
